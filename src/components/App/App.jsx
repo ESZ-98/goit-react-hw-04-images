@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Searchbar from '../Searchbar/Searchbar';
 import ImageGallery from '../ImageGallery/ImageGallery';
 import Loader from '../Loader/Loader';
@@ -7,74 +7,65 @@ import css from './App.module.css';
 import { pixabayApi } from 'components/API/pixabay-api';
 import { apiUrl } from 'components/API/pixabay-url';
 
-export class App extends Component {
-  state = {
-    querry: '',
-    page: 1,
-    perPage: 12,
-    isLoading: false,
-    pictures: [],
-    error: null,
-  };
+export const App = () => {
+  const [querry, setQuerry] = useState('');
+  const [page, setPage] = useState(1);
+  const perPage = 12;
+  const [isLoading, setIsLoading] = useState(false);
+  const [pictures, setPictures] = useState([]);
+  const [error, setError] = useState(null);
 
-  apiUrlState = async () => {
-    const { querry, page, perPage } = this.state;
-    this.setState({ isLoading: true });
+  const apiUrlState = useCallback(async () => {
+    setIsLoading(true);
     if (page === 1) {
       try {
         const answer = await pixabayApi(apiUrl(querry, page, perPage));
-        this.setState({ pictures: answer.data.hits });
+        setPictures(answer.data.hits);
       } catch (er) {
-        this.setState({ error: er });
+        setError(er);
       } finally {
-        this.setState({ isLoading: false });
+        setIsLoading(false);
       }
     } else {
       try {
         const answer = await pixabayApi(apiUrl(querry, page, perPage));
-        this.setState(prevState => ({
-          pictures: [...prevState.pictures, ...answer.data.hits],
-        }));
+        setPictures(prevState => {
+          return [...prevState, ...answer.data.hits];
+        });
       } catch (er) {
-        this.setState({ error: er });
+        setError(er);
       } finally {
-        this.setState({ isLoading: false });
+        setIsLoading(false);
       }
     }
+  }, [querry, page]);
+
+  const submitHandlerSearch = value => {
+    setQuerry(value);
+    setPage(1);
   };
 
-  submitHandlerSearch = value => {
-    this.setState({ querry: value, page: 1 });
+  const pageHandlerButton = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  pageHandlerButton = () => {
-    this.setState(prevState => ({ page: prevState.page + 1 }));
-  };
+  useEffect(() => {
+    if (querry !== '' || page !== 1) apiUrlState();
+  }, [querry, page, apiUrlState]);
 
-  render() {
-    const { pictures, isLoading, error } = this.state;
-    return (
-      <>
-        <div className={css.app}>
-          <Searchbar onSubmit={this.submitHandlerSearch} />
-          {isLoading && <Loader />}
-          {error !== null && <p>An error has occured: {error}</p>}
-          {pictures.length > 0 && (
-            <div className={css.page}>
-              <ImageGallery data={this.state.pictures} />
-
-              <Button pageHandler={this.pageHandlerButton} />
-            </div>
-          )}
-        </div>
-      </>
-    );
-  }
-  async componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.querry !== this.state.querry ||
-      prevState.page !== this.state.page
-    )
-      await this.apiUrlState();
-  }
-}
+  return (
+    <>
+      <div className={css.app}>
+        <Searchbar onSubmit={submitHandlerSearch} />
+        {isLoading && <Loader />}
+        {error !== null && <p>An error has occured: {error}</p>}
+        {pictures.length > 0 && (
+          <div className={css.page}>
+            <ImageGallery data={pictures} />
+            <Button pageHandler={pageHandlerButton} />
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
